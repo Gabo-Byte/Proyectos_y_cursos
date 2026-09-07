@@ -1,0 +1,5 @@
+1 Rata_Ruinas 20 5 0 Comun
+2 Automata_Dañado 35 3 10 Comun
+3 Cazador_Sombras 15 12 2 Comun
+4 Guardian_Nucleo 200 25 15 Raro
+5 Espectro_Anciano 100 18 10 Raro
