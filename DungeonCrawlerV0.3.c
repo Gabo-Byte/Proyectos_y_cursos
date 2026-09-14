@@ -74,7 +74,7 @@ int cargarPartida(EstadoJuego *estado);
 void registrarHighscore(EstadoJuego estado, bool victoria);
 
 // Menús adicionales y auxiliares (Necesarios para consola)
-int mostrarMenuInicio(EstadoJuego *partida);
+int mostrarMenuInicio(EstadoJuego *partida, Entidad bestiario[], int total_enemigos, Objeto catalogo[], int total_objetos);
 void menuFueraDeCombate(EstadoJuego *partida, Entidad bestiario[], int total_enemigos, Objeto catalogo[], int total_objetos);
 void limpiarBuffer();
 void gestionarPartidaGuardada();
@@ -113,7 +113,7 @@ int main(){
     srand(partida.semilla);
 
     // Iniciar el juego
-    mostrarMenuInicio(&partida); 
+    mostrarMenuInicio(&partida, bestiario, total_enemigos, catalogo, total_objetos);
 
     return 0;
 }
@@ -127,7 +127,7 @@ void limpiarBuffer() {
     while ((c = getchar()) != '\n' && c != EOF);
 }
 
-int mostrarMenuInicio(EstadoJuego *partida){
+int mostrarMenuInicio(EstadoJuego *partida, Entidad bestiario[], int total_enemigos, Objeto catalogo[], int total_objetos){
     int opc;
     do{
         printf("\n");
@@ -148,7 +148,8 @@ int mostrarMenuInicio(EstadoJuego *partida){
 
         switch (opc){
         case 1:
-            printf("Iniciando partida\n");
+            printf("Iniciando partida...\n");
+            menuFueraDeCombate(partida, bestiario, total_enemigos, catalogo, total_objetos);
             break;
         case 2:
             printf("Cargando partida (si existe)\n");
@@ -235,8 +236,8 @@ void iniciarCombate(EstadoJuego *estado, Entidad *enemigo) { // Modificado a los
         switch (opc){
         case 1:
             printf("Atacar objetivo\n");
-            // int dano = calcularDano(estado->atqBase, enemigo->defensaBase);
-            // enemigo->vidaBase -= dano;
+            int dano = calcularDano(estado->atqBase, enemigo->defensaBase);
+            enemigo->vidaBase -= dano;
             turnoJugadorConsumido = true;
             break;
         case 2:
@@ -244,17 +245,25 @@ void iniciarCombate(EstadoJuego *estado, Entidad *enemigo) { // Modificado a los
             turnoJugadorConsumido = true;
             break;
         case 3:
-            printf("Intentando huir\n");
+            printf("\nIntentando huir...\n");
+            if(rand() % 100 < 40){ // 40% de probabilidad de huir
+                printf("¡Huida exitosa! Lograste escapar.\n");
+                huidaExitosa = true;
+            }else{
+                printf("¡Fallaste al intentar huir!\n");
+                turnoJugadorConsumido = true;
+            }
             break;
         default:
             printf("Saliendo...\n"); 
             break;
         }
 
-        if (turnoJugadorConsumido && enemigo->vidaBase > 0 && !huidaExitosa) {
+        if(turnoJugadorConsumido && enemigo->vidaBase > 0 && !huidaExitosa){
             printf("\n¡Es el turno del %s!\n", enemigo->nombreEnemigo);
-            // int danoEnemigo = calcularDano(enemigo->danoBase, estado->defBase);
-            // estado->puntosHP_actual -= danoEnemigo;
+            int danoEnemigo = calcularDano(enemigo->danoBase, estado->defBase);
+            estado->puntosHP_actual -= danoEnemigo;
+            printf("Recibes %d de daño.\n", danoEnemigo);
         }
 
     }while(estado->puntosHP_actual > 0 && enemigo->vidaBase > 0 && !huidaExitosa);
@@ -329,18 +338,132 @@ void gestionarPartidaGuardada() {
         printf("Partida anterior eliminada del sistema.\n");
     }
 }
+//PENDIENTE
+void guardarPartida(EstadoJuego estado) {
+    // Abrimos en modo texto plano para escribir ("w")
+    FILE *archivo = fopen("partida_guardada.txt", "w"); 
+    
+    if (archivo == NULL) {
+        printf("[Error] No se pudo crear el archivo de guardado.\n");
+        return;
+    }
+
+    // 1. Guardamos todas las variables de tipo entero y booleano (casteado a int)
+    fprintf(archivo, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n",
+        estado.semilla,
+        estado.puntosHP_actual, estado.puntosHP_maximo,
+        estado.atqBase, estado.defBase,
+        estado.puntosXP, estado.nivelActual,
+        estado.numPiso, estado.numCuartoActual,
+        estado.tamanoInventarioMax, estado.totalPisosMax,
+        estado.cuartosBasePorPiso, estado.totalEnemigosDerrotados,
+        estado.objetosConsumidos, (int)estado.resultadoPartida
+    );
+
+    // 2. Guardamos la cantidad exacta de objetos que hay en el inventario
+    fprintf(archivo, "%d\n", estado.cantidadObjetosActual);
+
+    // 3. Recorremos el arreglo de inventario y guardamos los datos de cada objeto
+    for (int i = 0; i < estado.cantidadObjetosActual; i++) {
+        fprintf(archivo, "%s %s %d %s\n",
+            estado.inventarioJugador[i].id_Objeto,
+            estado.inventarioJugador[i].nombreObjeto,
+            estado.inventarioJugador[i].aumentoStats,
+            estado.inventarioJugador[i].tipoEfecto);
+    }
+
+    fclose(archivo);
+    printf("[Sistema] Partida guardada con éxito en modo texto.\n");
+}
 
 int cargarPartida(EstadoJuego *estado) {
-    printf("[Sistema] Cargando partida... (Funcionalidad pendiente)\n");
+    // Abrimos en modo texto plano para leer ("r")
+    FILE *archivo = fopen("partida_guardada.txt", "r"); 
+    
+    if (archivo == NULL) {
+        printf("[Sistema] No se encontró una partida previa.\n");
+        return 0;
+    }
+
+    int resultadoTemporal;
+
+    // 1. Leemos las variables base (usando & porque estamos modificando sus valores)
+    fscanf(archivo, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
+        &estado->semilla,
+        &estado->puntosHP_actual, &estado->puntosHP_maximo,
+        &estado->atqBase, &estado->defBase,
+        &estado->puntosXP, &estado->nivelActual,
+        &estado->numPiso, &estado->numCuartoActual,
+        &estado->tamanoInventarioMax, &estado->totalPisosMax,
+        &estado->cuartosBasePorPiso, &estado->totalEnemigosDerrotados,
+        &estado->objetosConsumidos, &resultadoTemporal
+    );
+
+    // Restauramos el booleano
+    estado->resultadoPartida = (bool)resultadoTemporal;
+
+    // 2. Leemos la cantidad de objetos que debemos cargar al inventario
+    fscanf(archivo, "%d", &estado->cantidadObjetosActual);
+
+    // 3. Iteramos para reconstruir el inventario objeto por objeto
+    for (int i = 0; i < estado->cantidadObjetosActual; i++) {
+        // Nota: Los strings (como id_Objeto) no llevan '&' en fscanf porque los arreglos ya son punteros en C
+        fscanf(archivo, "%s %s %d %s",
+            estado->inventarioJugador[i].id_Objeto,
+            estado->inventarioJugador[i].nombreObjeto,
+            &estado->inventarioJugador[i].aumentoStats,
+            estado->inventarioJugador[i].tipoEfecto);
+    }
+
+    fclose(archivo);
+    printf("[Sistema] Partida cargada exitosamente.\n");
     return 1;
 }
 
-void guardarPartida(EstadoJuego estado) {
-    printf("[Sistema] Guardando partida... (Funcionalidad pendiente)\n");
-}
-
 void usarObjeto(EstadoJuego *estado) {
-    printf("[Sistema] Abriendo inventario... (Funcionalidad pendiente)\n");
+    if (estado->cantidadObjetosActual == 0) {
+        printf("\nTu mochila está vacía.\n");
+        return;
+    }
+
+    printf("\n--- INVENTARIO ---\n");
+    for (int i = 0; i < estado->cantidadObjetosActual; i++) {
+        printf("[%d] %s (Efecto: %s | Poder: %d)\n", i + 1,
+               estado->inventarioJugador[i].nombreObjeto,
+               estado->inventarioJugador[i].tipoEfecto,
+               estado->inventarioJugador[i].aumentoStats);
+    }
+    printf("[0] Cancelar\n");
+    printf("Elige un objeto para usar: ");
+    
+    int opc;
+    scanf("%d", &opc);
+    limpiarBuffer();
+
+    if (opc > 0 && opc <= estado->cantidadObjetosActual) {
+        int indice = opc - 1;
+        Objeto obj = estado->inventarioJugador[indice];
+
+        // Procesar efecto
+        if (strcmp(obj.tipoEfecto, "CURA") == 0) {
+            estado->puntosHP_actual += obj.aumentoStats;
+            if (estado->puntosHP_actual > estado->puntosHP_maximo) 
+                estado->puntosHP_actual = estado->puntosHP_maximo;
+        } else if (strcmp(obj.tipoEfecto, "ATQ") == 0) {
+            estado->atqBase += obj.aumentoStats;
+        } else if (strcmp(obj.tipoEfecto, "DEF") == 0) {
+            estado->defBase += obj.aumentoStats;
+        }
+        
+        estado->objetosConsumidos++;
+        printf("\nConsumiste %s.\n", obj.nombreObjeto);
+
+        // Desplazar elementos a la izquierda para borrar el objeto
+        for (int i = indice; i < estado->cantidadObjetosActual - 1; i++) {
+            estado->inventarioJugador[i] = estado->inventarioJugador[i+1];
+        }
+        estado->cantidadObjetosActual--;
+    }
 }
 
 int calcularDano(int ataque_atacante, int defensa_defensor) {
@@ -427,13 +550,53 @@ void cargarObjetos(Objeto catalogo[], int *total_objetos) {
 
 // Estructuras vacías para completar luego y evitar errores de compilación
 void otorgarRecompensa(EstadoJuego *estado, Objeto catalogo[], int total_objetos, char tipo_enemigo[]) {
-    // Funcionalidad pendiente
+    int probabilidad = (strcmp(tipo_enemigo, "Raro") == 0) ? 100 : 30;
+
+    if ((rand() % 100) < probabilidad) {
+        if (estado->cantidadObjetosActual < estado->tamanoInventarioMax) {
+            int objAleatorio = rand() % total_objetos;
+            estado->inventarioJugador[estado->cantidadObjetosActual] = catalogo[objAleatorio];
+            estado->cantidadObjetosActual++;
+            printf("\n¡El enemigo dejó caer un objeto! Obtuviste: %s\n", catalogo[objAleatorio].nombreObjeto);
+        } else {
+            printf("\nEl enemigo soltó un objeto, pero tu inventario está lleno.\n");
+        }
+    }
 }
 
 void verificarSubidaNivel(EstadoJuego *estado) {
-    // Funcionalidad pendiente
+    int umbral = estado->nivelActual * 100; 
+    
+    if (estado->puntosXP >= umbral) {
+        estado->nivelActual++;
+        estado->puntosXP -= umbral; // Restamos la XP usada, conservando el sobrante
+        estado->puntosHP_maximo += 20;
+        estado->puntosHP_actual = estado->puntosHP_maximo; // Curar al 100%
+        estado->atqBase += 5;
+        estado->defBase += 5;
+        printf("\n*** ¡SUBISTE DE NIVEL! Ahora eres nivel %d ***\n", estado->nivelActual);
+        printf("Estadísticas aumentadas y salud restaurada al máximo.\n");
+    }
 }
 
 void registrarHighscore(EstadoJuego estado, bool victoria) {
-    // Funcionalidad pendiente
+    char nombre[50];
+    printf("\nIntroduce tu nombre o tag para el registro de Highscores: ");
+    scanf("%49s", nombre);
+    limpiarBuffer();
+
+    FILE *archivo = fopen("highscore.txt", "a");
+    if (archivo != NULL) {
+        fprintf(archivo, "Jugador: %-15s | Resultado: %-8s | Nivel: %02d | XP: %04d | Piso: %02d | Enemigos Derrotados: %d\n",
+                nombre,
+                victoria ? "Victoria" : "Derrota",
+                estado.nivelActual,
+                estado.puntosXP,
+                estado.numPiso,
+                estado.totalEnemigosDerrotados);
+        fclose(archivo);
+        printf("[Sistema] Tu puntuación ha sido registrada en highscore.txt\n");
+    } else {
+        printf("[Error] No se pudo escribir el archivo de Highscores.\n");
+    }
 }
