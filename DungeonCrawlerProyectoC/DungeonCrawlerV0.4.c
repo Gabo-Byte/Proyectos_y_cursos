@@ -205,6 +205,12 @@ void menuFueraDeCombate(EstadoJuego *partida, Entidad bestiario[], int total_ene
             printf("Saliendo...\n"); 
             break;
         }
+
+        // Validar si la partida terminó para sacarlo del menú de exploración
+        if (partida->puntosHP_actual <= 0 || partida->resultadoPartida == true) {
+            opc = 0; 
+        }
+
     }while(opc != 0);
 }
 
@@ -296,7 +302,7 @@ Entidad seleccionarEnemigo(Entidad bestiario[], int total_enemigos, int es_cuart
     return posibles[indice_aleatorio];
 }
 
-void avanzarCuarto(EstadoJuego *estado, Entidad bestiario[], int total_enemigos, Objeto catalogo[], int total_objetos) { // Cambiado a Entidad
+void avanzarCuarto(EstadoJuego *estado, Entidad bestiario[], int total_enemigos, Objeto catalogo[], int total_objetos) { 
     int cuartos_del_piso = estado->cuartosBasePorPiso;
     
     if (estado->numPiso == 1) {
@@ -315,6 +321,7 @@ void avanzarCuarto(EstadoJuego *estado, Entidad bestiario[], int total_enemigos,
         } else {
             printf("\n¡Felicidades! Has superado el último cuarto y conquistado el núcleo.\n");
             estado->resultadoPartida = true; 
+            registrarHighscore(*estado, true); // <-- Aquí registramos si gana el juego
             return; 
         }
     }
@@ -325,12 +332,36 @@ void avanzarCuarto(EstadoJuego *estado, Entidad bestiario[], int total_enemigos,
         printf("\n¡Cuidado! Has entrado al último cuarto de este piso. Una presencia imponente te aguarda...\n");
     }
 
+    // 1. Primero seleccionamos al enemigo
     Entidad enemigoActual = seleccionarEnemigo(bestiario, total_enemigos, es_cuarto_final);
     
     printf("\nTe adentras en el cuarto %d y te encuentras con un %s.\n", estado->numCuartoActual, enemigoActual.nombreEnemigo);
     
-    // Aquí invocamos el combate usando el nombre correcto
-    // iniciarCombate(estado, &enemigoActual);
+    // ==========================================
+    // AQUÍ EMPIEZA EL CÓDIGO NUEVO DE INTEGRACIÓN
+    // ==========================================
+
+    // 2. Luego iniciamos el combate contra ese enemigo
+    iniciarCombate(estado, &enemigoActual);
+
+    // 3. Finalmente, evaluamos qué pasó en el combate
+    if (estado->puntosHP_actual <= 0) {
+        // Si el jugador muere
+        printf("\nHas caído en batalla y tu aventura termina aquí...\n");
+        registrarHighscore(*estado, false); // Registramos la derrota
+        return; 
+    } else if (enemigoActual.vidaBase <= 0) { 
+        // Si el enemigo muere (no cuenta si el jugador huyó)
+        printf("\n¡Has derrotado al %s!\n", enemigoActual.nombreEnemigo);
+        estado->totalEnemigosDerrotados++;
+        estado->puntosXP += 50; // Sumamos la XP base
+        
+        // Invocamos la recompensa (esto elimina la línea amarilla de advertencia)
+        otorgarRecompensa(estado, catalogo, total_objetos, enemigoActual.tipo);
+        
+        // Revisamos si la XP obtenida es suficiente para subir de nivel
+        verificarSubidaNivel(estado);
+    }
 }
 
 void gestionarPartidaGuardada() {
@@ -444,14 +475,15 @@ void usarObjeto(EstadoJuego *estado) {
         int indice = opc - 1;
         Objeto obj = estado->inventarioJugador[indice];
 
-        // Procesar efecto
-        if (strcmp(obj.tipoEfecto, "CURA") == 0) {
+       
+        // Procesar efecto adaptado al objetos.txt
+        if (strcmp(obj.tipoEfecto, "Cura_Vida") == 0 || strcmp(obj.tipoEfecto, "Cura_Max") == 0) {
             estado->puntosHP_actual += obj.aumentoStats;
             if (estado->puntosHP_actual > estado->puntosHP_maximo) 
                 estado->puntosHP_actual = estado->puntosHP_maximo;
-        } else if (strcmp(obj.tipoEfecto, "ATQ") == 0) {
+        } else if (strcmp(obj.tipoEfecto, "Buff_Daño") == 0 || strcmp(obj.tipoEfecto, "Buff_Dano") == 0) {
             estado->atqBase += obj.aumentoStats;
-        } else if (strcmp(obj.tipoEfecto, "DEF") == 0) {
+        } else if (strcmp(obj.tipoEfecto, "Buff_Defensa") == 0) {
             estado->defBase += obj.aumentoStats;
         }
         
