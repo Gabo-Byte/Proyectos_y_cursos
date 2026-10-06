@@ -14,6 +14,7 @@ typedef struct{
     char nombreObjeto[50];
     int aumentoStats; 
     char tipoEfecto[50];
+    int cantidad;
 }Objeto;
 
 // 2. Estructura del Estado del Juego
