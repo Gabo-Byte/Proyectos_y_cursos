@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Campus Bárbula - Universidad de Carabobo</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #9bd8e8; }
+        #info { 
+            position: absolute; top: 10px; width: 100%; text-align: center; 
+            color: #111; font-family: sans-serif; pointer-events: none; 
+            background: rgba(255,255,255,0.6); padding: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <strong>Campus Bárbula - Universidad de Carabobo</strong><br/>
+        Haz clic y arrastra para rotar | Usa la rueda del ratón para alejarte y ver las Facultades
+    </div>
+
+    <!-- Librerías clásicas para máxima compatibilidad -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // 1. CONFIGURACIÓN DE LA ESCENA
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x9bd8e8); 
+
+        // Cámara un poco más alta para invitar a ver detrás del arco
+        var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 15, 35);
+
+        var renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        var controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 5, -20); // Mirando hacia el interior del campus
+        controls.maxDistance = 250;     // Permitir alejar bastante la cámara
+        controls.update();
+
+        // Materiales compartidos
+        var matTurquoise = new THREE.MeshBasicMaterial({ color: 0x50c8c6 });
+        var matDarkGrey = new THREE.MeshBasicMaterial({ color: 0x3d4447 });
+        var matWhite = new THREE.MeshBasicMaterial({ color: 0xf5f5f5 });
+        var matRoof = new THREE.MeshBasicMaterial({ color: 0x301f18 });
+
+        // ==========================================
+        //  EL ARCO DE ENTRADA (Código anterior)
+        // ==========================================
+        var archShape = new THREE.Shape();
+        archShape.moveTo(-7.5, 0); archShape.lineTo(-7.5, 3.5); archShape.lineTo(-3.5, 5.5);
+        archShape.lineTo(3.5, 5.5); archShape.lineTo(7.5, 3.5); archShape.lineTo(7.5, 0);
+        archShape.lineTo(10, 0); archShape.lineTo(10, 6.2); archShape.lineTo(0, 7.8);
+        archShape.lineTo(-10, 6.2); archShape.lineTo(-10, 0); archShape.lineTo(-7.5, 0);
+
+        var archGeo = new THREE.ExtrudeGeometry(archShape, { depth: 1.5, bevelEnabled: false });
+        var arch = new THREE.Mesh(archGeo, matTurquoise);
+        arch.position.z = -0.75; 
+        scene.add(arch);
+
+        var baseGeo = new THREE.BoxGeometry(2.7, 2.5, 1.8);
+        var baseL = new THREE.Mesh(baseGeo, matDarkGrey); baseL.position.set(-8.75, 1.25, 0); scene.add(baseL);
+        var baseR = new THREE.Mesh(baseGeo, matDarkGrey); baseR.position.set(8.75, 1.25, 0); scene.add(baseR);
+
+        var wallGeo = new THREE.BoxGeometry(4.5, 4.5, 0.6);
+        var wallL = new THREE.Mesh(wallGeo, matWhite); wallL.position.set(-12.25, 2.25, 0); scene.add(wallL);
+        var wallR = new THREE.Mesh(wallGeo, matWhite); wallR.position.set(12.25, 2.25, 0); scene.add(wallR);
+
+        var roofGeo = new THREE.BoxGeometry(10.3, 0.2, 2.2);
+        var roofL = new THREE.Mesh(roofGeo, matRoof); roofL.position.set(-5, 7.05, 0); roofL.rotation.z = 0.158; scene.add(roofL);
+        var roofR = new THREE.Mesh(roofGeo, matRoof); roofR.position.set(5, 7.05, 0); roofR.rotation.z = -0.158; scene.add(roofR);
+
+        // Logos y Textos del arco
+        function createTextCanvas(text, font, fg, bg, w, h) {
+            var cvs = document.createElement('canvas');
+            cvs.width = w; cvs.height = h;
+            var ctx = cvs.getContext('2d');
+            if(bg) { ctx.fillStyle = bg; ctx.fillRect(0,0,w,h); }
+            ctx.font = font; ctx.fillStyle = fg;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(text, w/2, h/2);
+            return new THREE.CanvasTexture(cvs);
+        }
+
+        var textMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(16, 2),
+            new THREE.MeshBasicMaterial({ map: createTextCanvas('UNIVERSIDAD DE CARABOBO', 'bold 50px sans-serif', '#111', null, 1024, 128), transparent: true })
+        );
+        textMesh.position.set(0, 5.8, 0.76); scene.add(textMesh);
+
+        var fcuMat = new THREE.MeshBasicMaterial({ map: createTextCanvas('FCU', 'bold 80px serif', 'white', '#13497d', 256, 128) });
+        var fcuL = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.6), fcuMat); fcuL.position.set(-12.25, 2.5, 0.31); scene.add(fcuL);
+        var fcuR = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.6), fcuMat); fcuR.position.set(12.25, 2.5, 0.31); scene.add(fcuR);
+
+        // ==========================================
+        //  ENTORNO Y VIALIDAD (Av. Salvador Allende)
+        // ==========================================
+        // Suelo verde simulando las áreas naturales del campus
+        var ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshBasicMaterial({ color: 0x4a7c59 }));
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.z = -150;
+        scene.add(ground);
+
+        // Asfalto de la avenida principal
+        var road = new THREE.Mesh(new THREE.PlaneGeometry(13, 400), new THREE.MeshBasicMaterial({ color: 0x5a5d60 }));
+        road.rotation.x = -Math.PI / 2;
+        road.position.set(0, 0.05, -150);
+        scene.add(road);
+
+        // Brocales amarillos extendidos hacia adentro del campus
+        var curbGeo = new THREE.BoxGeometry(0.4, 0.15, 300);
+        var curbMat = new THREE.MeshBasicMaterial({ color: 0xf4c522 }); 
+        var curbL = new THREE.Mesh(curbGeo, curbMat); curbL.position.set(-6.5, 0.075, -100); scene.add(curbL);
+        var curbR = new THREE.Mesh(curbGeo, curbMat); curbR.position.set(6.5, 0.075, -100); scene.add(curbR);
+
+        // ==========================================
+        //  GENERADOR DE FACULTADES
+        // ==========================================
+        function addFaculty(name, width, height, depth, x, z, colorHex) {
+            // Edificio
+            var geo = new THREE.BoxGeometry(width, height, depth);
+            var mat = new THREE.MeshBasicMaterial({ color: colorHex });
+            var building = new THREE.Mesh(geo, mat);
+            building.position.set(x, height / 2, z);
+            scene.add(building);
+
+            // Etiqueta frontal del edificio
+            var labelTex = createTextCanvas(name, 'bold 40px sans-serif', 'white', colorHex, 512, 128);
+            var labelGeo = new THREE.PlaneGeometry(width * 0.9, (width * 0.9) * 0.25);
+            var labelMat = new THREE.MeshBasicMaterial({ map: labelTex });
+            var label = new THREE.Mesh(labelGeo, labelMat);
+            
+            // Colocar la etiqueta en la cara frontal mirando a la avenida/entrada
+            label.position.set(x, height - 2, z + (depth / 2) + 0.1);
+            scene.add(label);
+        }
+
+        // --- DISTRIBUCIÓN SEGÚN LA DESCRIPCIÓN ---
+
+        // 1. FaCES (Planta baja, cerca de la entrada principal)
+        addFaculty("FaCES", 20, 8, 25, -25, -35, '#2980b9'); // Azul
+
+        // 2. FACE / Educación (Colinda con FaCES)
+        addFaculty("FACE", 20, 8, 25, -25, -65, '#c0392b'); // Rojo
+
+        // 3. Ingeniería (Sector norte-este, cerca de vía principal)
+        addFaculty("INGENIERÍA", 30, 12, 35, 30, -60, '#f39c12'); // Naranja/Dorado
+
+        // 4. Derecho (Sector central-sur)
+        addFaculty("DERECHO", 20, 10, 20, -25, -95, '#27ae60'); // Verde
+
+        // 5. FACYT (Aledaña a ingeniería hacia el norte)
+        addFaculty("FACYT", 25, 10, 25, 30, -100, '#8e44ad'); // Morado
+
+        // 6. Ciencias de la Salud (Zona hospitalaria, al fondo)
+        addFaculty("SALUD", 30, 15, 30, -35, -145, '#16a085'); // Turquesa oscuro
+
+        // 7. Odontología (Complejo independiente cerca de salud)
+        addFaculty("ODONTOLOGÍA", 15, 8, 20, -10, -155, '#d35400'); // Naranja rojizo
+
+
+        // ==========================================
+        //  RENDERIZADO CONTINUO
+        // ==========================================
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }, false);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>

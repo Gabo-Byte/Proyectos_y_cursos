@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Modelo 3D Optimizado - Arco UC</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #9bd8e8; }
+        #info { position: absolute; top: 10px; width: 100%; text-align: center; color: #111; font-family: sans-serif; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="info">Arco de la Universidad de Carabobo (Optimizado)</div>
+
+    <!-- Incluir Three.js de forma clásica (Global) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Incluir OrbitControls de forma clásica -->
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // 1. CONFIGURACIÓN BÁSICA DE LA ESCENA
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x9bd8e8); // Color cielo
+
+        var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 6, 28);
+
+        // Usamos antialias: false y un renderer básico para mayor rendimiento
+        var renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        var controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 5, 0);
+        controls.update();
+
+        // 2. MATERIALES BÁSICOS (Más rápidos para hardware viejo)
+        var matTurquoise = new THREE.MeshBasicMaterial({ color: 0x50c8c6 });
+        var matDarkGrey = new THREE.MeshBasicMaterial({ color: 0x3d4447 });
+        var matWhite = new THREE.MeshBasicMaterial({ color: 0xf5f5f5 });
+        var matRoof = new THREE.MeshBasicMaterial({ color: 0x301f18 });
+
+        // 3. ESTRUCTURA PRINCIPAL DEL ARCO (Forma extruida)
+        var archShape = new THREE.Shape();
+        archShape.moveTo(-7.5, 0);           // Pilar izquierdo interno bottom
+        archShape.lineTo(-7.5, 3.5);         // Pilar izquierdo interno recta
+        archShape.lineTo(-3.5, 5.5);         // Bisel interno izquierdo
+        archShape.lineTo(3.5, 5.5);          // Techo interno recto
+        archShape.lineTo(7.5, 3.5);          // Bisel interno derecho
+        archShape.lineTo(7.5, 0);            // Pilar derecho interno bottom
+        archShape.lineTo(10, 0);             // Pilar derecho externo bottom
+        archShape.lineTo(10, 6.2);           // Pilar derecho externo top
+        archShape.lineTo(0, 7.8);            // Pico del techo (centro)
+        archShape.lineTo(-10, 6.2);          // Pilar izquierdo externo top
+        archShape.lineTo(-10, 0);            // Pilar izquierdo externo bottom
+        archShape.lineTo(-7.5, 0);           // Cerrar
+
+        var extrudeSettings = { depth: 1.5, bevelEnabled: false };
+        var archGeometry = new THREE.ExtrudeGeometry(archShape, extrudeSettings);
+        var arch = new THREE.Mesh(archGeometry, matTurquoise);
+        arch.position.z = -0.75; 
+        scene.add(arch);
+
+        // 4. BASES GRISES
+        var baseGeo = new THREE.BoxGeometry(2.7, 2.5, 1.8);
+        var baseL = new THREE.Mesh(baseGeo, matDarkGrey);
+        baseL.position.set(-8.75, 1.25, 0);
+        scene.add(baseL);
+
+        var baseR = new THREE.Mesh(baseGeo, matDarkGrey);
+        baseR.position.set(8.75, 1.25, 0);
+        scene.add(baseR);
+
+        // 5. MUROS LATERALES BLANCOS
+        var wallGeo = new THREE.BoxGeometry(4.5, 4.5, 0.6);
+        var wallL = new THREE.Mesh(wallGeo, matWhite);
+        wallL.position.set(-12.25, 2.25, 0);
+        scene.add(wallL);
+
+        var wallR = new THREE.Mesh(wallGeo, matWhite);
+        wallR.position.set(12.25, 2.25, 0);
+        scene.add(wallR);
+
+        // 6. TECHO DE MADERA
+        var roofGeo = new THREE.BoxGeometry(10.3, 0.2, 2.2);
+        
+        var roofL = new THREE.Mesh(roofGeo, matRoof);
+        roofL.position.set(-5, 7.05, 0);
+        roofL.rotation.z = 0.158; 
+        scene.add(roofL);
+
+        var roofR = new THREE.Mesh(roofGeo, matRoof);
+        roofR.position.set(5, 7.05, 0);
+        roofR.rotation.z = -0.158;
+        scene.add(roofR);
+
+        // 7. TEXTO Y LOGOS USANDO CANVAS TEXTURES
+        function createMainText() {
+            var canvas = document.createElement('canvas');
+            canvas.width = 1024; canvas.height = 128; // Resolución reducida
+            var ctx = canvas.getContext('2d');
+            ctx.font = 'bold 50px sans-serif';
+            ctx.fillStyle = '#111';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('UNIVERSIDAD DE CARABOBO', 512, 64);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        var textPlane = new THREE.PlaneGeometry(16, 2);
+        var textMat = new THREE.MeshBasicMaterial({ map: createMainText(), transparent: true });
+        var textMesh = new THREE.Mesh(textPlane, textMat);
+        textMesh.position.set(0, 5.8, 0.76); 
+        scene.add(textMesh);
+
+        function createFCULogo() {
+            var canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 128; // Resolución reducida
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#13497d'; // Azul logo
+            ctx.fillRect(0, 0, 256, 128);
+            ctx.font = 'bold 80px serif';
+            ctx.fillStyle = 'white';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('FCU', 128, 64);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        var fcuGeo = new THREE.PlaneGeometry(3.2, 1.6);
+        var fcuMat = new THREE.MeshBasicMaterial({ map: createFCULogo() });
+        
+        var fcuLeft = new THREE.Mesh(fcuGeo, fcuMat);
+        fcuLeft.position.set(-12.25, 2.5, 0.31);
+        scene.add(fcuLeft);
+
+        var fcuRight = new THREE.Mesh(fcuGeo, fcuMat);
+        fcuRight.position.set(12.25, 2.5, 0.31);
+        scene.add(fcuRight);
+
+        // 8. ESCUDO SUPERIOR
+        var shieldShape = new THREE.Shape();
+        shieldShape.moveTo(-0.6, 0.6);
+        shieldShape.lineTo(0.6, 0.6);
+        shieldShape.lineTo(0.6, -0.2);
+        shieldShape.bezierCurveTo(0.6, -0.8, 0, -1, 0, -1.2);
+        shieldShape.bezierCurveTo(0, -1, -0.6, -0.8, -0.6, -0.2);
+        
+        var shield = new THREE.Mesh(
+            new THREE.ShapeGeometry(shieldShape),
+            new THREE.MeshBasicMaterial({ color: 0x1a1a1a })
+        );
+        shield.position.set(0, 7.3, 0.76);
+        scene.add(shield);
+
+        // 9. SUELO Y BROCALES
+        var ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(100, 100),
+            new THREE.MeshBasicMaterial({ color: 0x5a5d60 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
+        var curbGeo = new THREE.BoxGeometry(0.4, 0.15, 100);
+        var curbMat = new THREE.MeshBasicMaterial({ color: 0xf4c522 }); 
+        
+        var curbL = new THREE.Mesh(curbGeo, curbMat);
+        curbL.position.set(-6.5, 0.075, 0);
+        scene.add(curbL);
+
+        var curbR = new THREE.Mesh(curbGeo, curbMat);
+        curbR.position.set(6.5, 0.075, 0);
+        scene.add(curbR);
+
+        // 10. ANIMACIÓN Y RESPUESTA
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>

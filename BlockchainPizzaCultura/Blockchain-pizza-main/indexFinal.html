@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Campus Universitario - Arco y FACYT</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #9bd8e8; }
+        #info { 
+            position: absolute; top: 10px; width: 100%; text-align: center; 
+            color: #111; font-family: sans-serif; pointer-events: none; 
+            background: rgba(255,255,255,0.7); padding: 10px 0;
+            border-bottom: 2px solid #13497d;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <strong>Universidad de Carabobo - Entrada Principal y FACYT</strong><br/>
+        Modelo optimizado | Usa el ratón para rotar y hacer zoom
+    </div>
+
+    <!-- Librerías de Three.js clásicas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // ==========================================
+        // 1. CONFIGURACIÓN DE LA ESCENA Y CÁMARA
+        // ==========================================
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x9bd8e8); 
+
+        var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Posicionamos la cámara para ver el arco y el terreno de FACYT detrás
+        camera.position.set(-25, 30, 45); 
+
+        var renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        var controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(-15, 0, -20); // Mirando hacia el interior de la facultad
+        controls.maxDistance = 200;
+        controls.update();
+
+
+        // ==========================================
+        // 2. EL ARCO (TU CÓDIGO RECICLADO)
+        // ==========================================
+        var archGroup = new THREE.Group(); // Agrupamos todo el arco para manejarlo como una unidad
+
+        var matTurquoise = new THREE.MeshBasicMaterial({ color: 0x50c8c6 });
+        var matDarkGrey = new THREE.MeshBasicMaterial({ color: 0x3d4447 });
+        var matWhite = new THREE.MeshBasicMaterial({ color: 0xf5f5f5 });
+        var matRoof = new THREE.MeshBasicMaterial({ color: 0x301f18 });
+
+        var archShape = new THREE.Shape();
+        archShape.moveTo(-7.5, 0); archShape.lineTo(-7.5, 3.5); archShape.lineTo(-3.5, 5.5);
+        archShape.lineTo(3.5, 5.5); archShape.lineTo(7.5, 3.5); archShape.lineTo(7.5, 0);
+        archShape.lineTo(10, 0); archShape.lineTo(10, 6.2); archShape.lineTo(0, 7.8);
+        archShape.lineTo(-10, 6.2); archShape.lineTo(-10, 0); archShape.lineTo(-7.5, 0);
+
+        var extrudeSettings = { depth: 1.5, bevelEnabled: false };
+        var archGeometry = new THREE.ExtrudeGeometry(archShape, extrudeSettings);
+        var arch = new THREE.Mesh(archGeometry, matTurquoise);
+        arch.position.z = -0.75; 
+        archGroup.add(arch);
+
+        var baseGeo = new THREE.BoxGeometry(2.7, 2.5, 1.8);
+        var baseL = new THREE.Mesh(baseGeo, matDarkGrey); baseL.position.set(-8.75, 1.25, 0); archGroup.add(baseL);
+        var baseR = new THREE.Mesh(baseGeo, matDarkGrey); baseR.position.set(8.75, 1.25, 0); archGroup.add(baseR);
+
+        var wallGeo = new THREE.BoxGeometry(4.5, 4.5, 0.6);
+        var wallL = new THREE.Mesh(wallGeo, matWhite); wallL.position.set(-12.25, 2.25, 0); archGroup.add(wallL);
+        var wallR = new THREE.Mesh(wallGeo, matWhite); wallR.position.set(12.25, 2.25, 0); archGroup.add(wallR);
+
+        var roofGeo = new THREE.BoxGeometry(10.3, 0.2, 2.2);
+        var roofL = new THREE.Mesh(roofGeo, matRoof); roofL.position.set(-5, 7.05, 0); roofL.rotation.z = 0.158; archGroup.add(roofL);
+        var roofR = new THREE.Mesh(roofGeo, matRoof); roofR.position.set(5, 7.05, 0); roofR.rotation.z = -0.158; archGroup.add(roofR);
+
+        function createMainText() {
+            var canvas = document.createElement('canvas');
+            canvas.width = 1024; canvas.height = 128; 
+            var ctx = canvas.getContext('2d');
+            ctx.font = 'bold 50px sans-serif'; ctx.fillStyle = '#111';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('UNIVERSIDAD DE CARABOBO', 512, 64);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        var textPlane = new THREE.PlaneGeometry(16, 2);
+        var textMat = new THREE.MeshBasicMaterial({ map: createMainText(), transparent: true });
+        var textMesh = new THREE.Mesh(textPlane, textMat);
+        textMesh.position.set(0, 5.8, 0.76); 
+        archGroup.add(textMesh);
+
+        function createFCULogo() {
+            var canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 128; 
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#13497d'; ctx.fillRect(0, 0, 256, 128);
+            ctx.font = 'bold 80px serif'; ctx.fillStyle = 'white';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('FCU', 128, 64);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        var fcuGeo = new THREE.PlaneGeometry(3.2, 1.6);
+        var fcuMat = new THREE.MeshBasicMaterial({ map: createFCULogo() });
+        var fcuLeft = new THREE.Mesh(fcuGeo, fcuMat); fcuLeft.position.set(-12.25, 2.5, 0.31); archGroup.add(fcuLeft);
+        var fcuRight = new THREE.Mesh(fcuGeo, fcuMat); fcuRight.position.set(12.25, 2.5, 0.31); archGroup.add(fcuRight);
+
+        var shieldShape = new THREE.Shape();
+        shieldShape.moveTo(-0.6, 0.6); shieldShape.lineTo(0.6, 0.6); shieldShape.lineTo(0.6, -0.2);
+        shieldShape.bezierCurveTo(0.6, -0.8, 0, -1, 0, -1.2); shieldShape.bezierCurveTo(0, -1, -0.6, -0.8, -0.6, -0.2);
+        var shield = new THREE.Mesh(new THREE.ShapeGeometry(shieldShape), new THREE.MeshBasicMaterial({ color: 0x1a1a1a }));
+        shield.position.set(0, 7.3, 0.76); archGroup.add(shield);
+
+        // Ubicamos el arco ensamblado en el origen del mundo
+        archGroup.position.set(0, 0, 0);
+        scene.add(archGroup);
+
+
+        // ==========================================
+        // 3. TERRENO, VIALIDAD Y FACYT
+        // ==========================================
+        var matAsphalt = new THREE.MeshBasicMaterial({ color: 0x5a5d60 });
+        var matGrass = new THREE.MeshBasicMaterial({ color: 0x5a7a49 });
+        var matWall = new THREE.MeshBasicMaterial({ color: 0xdddddd }); 
+        var matFacytRoof = new THREE.MeshBasicMaterial({ color: 0x2b2b2b }); 
+
+        // Suelo verde principal
+        var ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), matGrass);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.set(-50, 0, -50);
+        scene.add(ground);
+
+        // Avenida Principal (pasa por debajo del arco)
+        var mainRoad = new THREE.Mesh(new THREE.PlaneGeometry(16, 200), matAsphalt);
+        mainRoad.rotation.x = -Math.PI / 2;
+        mainRoad.position.set(0, 0.05, -80);
+        scene.add(mainRoad);
+
+        // Brocales amarillos extendidos por la avenida principal
+        var curbGeo = new THREE.BoxGeometry(0.4, 0.15, 200);
+        var curbMat = new THREE.MeshBasicMaterial({ color: 0xf4c522 }); 
+        var curbL = new THREE.Mesh(curbGeo, curbMat); curbL.position.set(-8, 0.075, -80); scene.add(curbL);
+        var curbR = new THREE.Mesh(curbGeo, curbMat); curbR.position.set(8, 0.075, -80); scene.add(curbR);
+
+        // Calle interna hacia FACYT
+        var innerRoad = new THREE.Mesh(new THREE.PlaneGeometry(80, 8), matAsphalt);
+        innerRoad.rotation.x = -Math.PI / 2;
+        innerRoad.position.set(-30, 0.06, -15);
+        scene.add(innerRoad);
+
+        // Generador de Edificios FACYT
+        function createTextLabel(text, size) {
+            var cvs = document.createElement('canvas');
+            cvs.width = 512; cvs.height = 128;
+            var ctx = cvs.getContext('2d');
+            ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0,0,512,128);
+            ctx.font = size + 'px sans-serif'; ctx.fillStyle = 'white';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(text, 256, 64);
+            return new THREE.CanvasTexture(cvs);
+        }
+
+        function addFacytBuilding(name, w, h, d, x, z) {
+            var group = new THREE.Group();
+            group.position.set(x, 0, z);
+
+            var walls = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matWall);
+            walls.position.y = h / 2;
+            group.add(walls);
+
+            var roof = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 0.4, d + 0.4), matFacytRoof);
+            roof.position.y = h + 0.2;
+            group.add(roof);
+
+            var labelMat = new THREE.MeshBasicMaterial({ map: createTextLabel(name, 'bold 45'), transparent: true });
+            var label = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.8, (w * 0.8) * 0.25), labelMat);
+            label.position.set(0, h + 3, 0);
+            label.rotation.x = -Math.PI / 4; 
+            group.add(label);
+
+            scene.add(group);
+        }
+
+        // Distribución según la foto satelital
+        addFacytBuilding("Centro de Estudiantes", 10, 4, 12, -18, -12);
+        addFacytBuilding("Biblioteca FACYT", 14, 6, 25, -20, -32);
+        addFacytBuilding("Decanato FACYT", 22, 7, 18, -12, -58);
+        addFacytBuilding("Dpto. de Biología", 18, 5, 18, -45, -30);
+        addFacytBuilding("FACYT (Aulas y Labs)", 35, 6, 25, -50, -60);
+
+        // La Plaza Circular Central
+        var plazaGroup = new THREE.Group();
+        plazaGroup.position.set(-35, 0.1, -40);
+        
+        var circle1 = new THREE.Mesh(new THREE.CircleGeometry(6, 32), new THREE.MeshBasicMaterial({ color: 0xaaaaaa }));
+        circle1.rotation.x = -Math.PI / 2; plazaGroup.add(circle1);
+
+        var circle2 = new THREE.Mesh(new THREE.CircleGeometry(4, 32), new THREE.MeshBasicMaterial({ color: 0xc9a959 }));
+        circle2.rotation.x = -Math.PI / 2; circle2.position.y = 0.01; plazaGroup.add(circle2);
+        
+        var pathGeo = new THREE.PlaneGeometry(2, 16);
+        var pathMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa });
+        var path1 = new THREE.Mesh(pathGeo, pathMat); path1.rotation.x = -Math.PI/2;
+        var path2 = new THREE.Mesh(pathGeo, pathMat); path2.rotation.x = -Math.PI/2; path2.rotation.z = Math.PI/2;
+        plazaGroup.add(path1); plazaGroup.add(path2);
+
+        scene.add(plazaGroup);
+
+        // Árboles optimizados (Tronco simple + Copa)
+        function createTree(x, z) {
+            var trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 2, 5), new THREE.MeshBasicMaterial({color: 0x4a3622}));
+            trunk.position.set(x, 1, z);
+            var leaves = new THREE.Mesh(new THREE.DodecahedronGeometry(2.5, 0), new THREE.MeshBasicMaterial({color: 0x2e5c33}));
+            leaves.position.set(x, 3, z);
+            scene.add(trunk); scene.add(leaves);
+        }
+
+        var treePositions = [
+            [-8, -5], [-25, -5], [-35, -8], [-45, -10], 
+            [-30, -25], [-28, -48], [-45, -45],         
+            [-5, -25], [-5, -40], [-5, -70],            
+            [-60, -35], [-65, -50], [-25, -75]          
+        ];
+        
+        treePositions.forEach(pos => {
+            createTree(pos[0], pos[1]);
+            createTree(pos[0] + (Math.random()*4-2), pos[1] + (Math.random()*4-2));
+            createTree(pos[0] + (Math.random()*4-2), pos[1] + (Math.random()*4-2));
+        });
+
+        // ==========================================
+        // 4. BUCLE DE RENDERIZADO
+        // ==========================================
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>

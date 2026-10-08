@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Modelo 3D - Terreno FACYT UC</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; }
+        #info { 
+            position: absolute; top: 10px; width: 100%; text-align: center; 
+            color: #111; font-family: sans-serif; pointer-events: none; 
+            background: rgba(255,255,255,0.7); padding: 10px 0;
+            border-bottom: 2px solid #13497d;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <strong>Complejo FACYT - Universidad de Carabobo</strong><br/>
+        Vista interactiva basada en el mapa satelital | Usa el ratón para rotar y hacer zoom
+    </div>
+
+    <!-- Librerías de Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // 1. ESCENA Y CÁMARA (Orientada para ver FACYT desde arriba como en el mapa)
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x9bd8e8); 
+
+        var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(-30, 45, 30); // Ángulo isométrico aéreo similar a la foto
+
+        var renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        var controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(-25, 0, -25); // Centrado en la plaza de FACYT
+        controls.maxDistance = 150;
+        controls.update();
+
+        // 2. MATERIALES COMUNES
+        var matAsphalt = new THREE.MeshBasicMaterial({ color: 0x5a5d60 });
+        var matGrass = new THREE.MeshBasicMaterial({ color: 0x5a7a49 });
+        var matWall = new THREE.MeshBasicMaterial({ color: 0xdddddd }); // Paredes claras
+        var matRoof = new THREE.MeshBasicMaterial({ color: 0x2b2b2b }); // Techos oscuros asfálticos
+        
+        // 3. TERRENO Y VIALIDAD
+        var ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), matGrass);
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
+        // Avenida Principal (Salvador Allende) - Lado derecho del mapa
+        var mainRoad = new THREE.Mesh(new THREE.PlaneGeometry(16, 300), matAsphalt);
+        mainRoad.rotation.x = -Math.PI / 2;
+        mainRoad.position.set(0, 0.05, -100);
+        scene.add(mainRoad);
+
+        // Calle interna hacia FACYT
+        var innerRoad = new THREE.Mesh(new THREE.PlaneGeometry(80, 8), matAsphalt);
+        innerRoad.rotation.x = -Math.PI / 2;
+        innerRoad.position.set(-30, 0.06, -15);
+        scene.add(innerRoad);
+
+        // 4. EL ARCO DE BÁRBULA (Simplificado como referencia espacial)
+        var archGroup = new THREE.Group();
+        var matTurq = new THREE.MeshBasicMaterial({ color: 0x50c8c6 });
+        
+        var pillarGeo = new THREE.BoxGeometry(2, 6, 2);
+        var pL = new THREE.Mesh(pillarGeo, matTurq); pL.position.set(-5, 3, 0); archGroup.add(pL);
+        var pR = new THREE.Mesh(pillarGeo, matTurq); pR.position.set(5, 3, 0); archGroup.add(pR);
+        
+        var topGeo = new THREE.BoxGeometry(14, 1.5, 2.2);
+        var topM = new THREE.Mesh(topGeo, matTurq); topM.position.set(0, 6.75, 0); archGroup.add(topM);
+        
+        archGroup.position.set(0, 0, 0);
+        scene.add(archGroup);
+
+        // 5. GENERADOR DE EDIFICIOS (Estilo FACYT: Planos y techos oscuros)
+        function createTextLabel(text, size) {
+            var cvs = document.createElement('canvas');
+            cvs.width = 512; cvs.height = 128;
+            var ctx = cvs.getContext('2d');
+            ctx.fillStyle = 'rgba(0,0,0,0.5)'; // Fondo semi-transparente
+            ctx.fillRect(0,0,512,128);
+            ctx.font = size + 'px sans-serif'; 
+            ctx.fillStyle = 'white';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(text, 256, 64);
+            return new THREE.CanvasTexture(cvs);
+        }
+
+        function addFacytBuilding(name, w, h, d, x, z) {
+            var group = new THREE.Group();
+            group.position.set(x, 0, z);
+
+            // Paredes
+            var walls = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matWall);
+            walls.position.y = h / 2;
+            group.add(walls);
+
+            // Techo oscuro asfáltico (ligeramente más ancho)
+            var roof = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 0.4, d + 0.4), matRoof);
+            roof.position.y = h + 0.2;
+            group.add(roof);
+
+            // Etiqueta flotante tipo "Pin de Google Maps"
+            var labelMat = new THREE.MeshBasicMaterial({ map: createTextLabel(name, 'bold 45'), transparent: true });
+            var label = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.8, (w * 0.8) * 0.25), labelMat);
+            label.position.set(0, h + 3, 0);
+            
+            // Hacer que la etiqueta siempre mire a la cámara (billboarding básico)
+            label.rotation.x = -Math.PI / 4; 
+            group.add(label);
+
+            scene.add(group);
+        }
+
+        // --- UBICACIÓN EXACTA SEGÚN EL MAPA PROPORCIONADO ---
+        
+        // 1. Centro de Estudiantes (Pequeño, detrás y a la izquierda del arco)
+        addFacytBuilding("Centro de Estudiantes", 10, 4, 12, -18, -12);
+
+        // 2. Biblioteca de FACYT (Bloque alargado)
+        addFacytBuilding("Biblioteca FACYT", 14, 6, 25, -20, -32);
+
+        // 3. Decanato de FACYT (Bloque grande cercano a la avenida)
+        addFacytBuilding("Decanato FACYT", 22, 7, 18, -12, -58);
+
+        // 4. Departamento de Biología (A la izquierda de la plaza)
+        addFacytBuilding("Dpto. de Biología", 18, 5, 18, -45, -30);
+
+        // 5. Edificio Principal FACYT / Computación (Complejo grande al fondo izquierda)
+        addFacytBuilding("FACYT (Aulas y Labs)", 35, 6, 25, -50, -60);
+
+
+        // 6. LA PLAZA CIRCULAR CENTRAL
+        var plazaGroup = new THREE.Group();
+        plazaGroup.position.set(-35, 0.1, -40);
+        
+        var circle1 = new THREE.Mesh(new THREE.CircleGeometry(6, 32), new THREE.MeshBasicMaterial({ color: 0xaaaaaa }));
+        circle1.rotation.x = -Math.PI / 2;
+        plazaGroup.add(circle1);
+
+        var circle2 = new THREE.Mesh(new THREE.CircleGeometry(4, 32), new THREE.MeshBasicMaterial({ color: 0xc9a959 })); // Tono arena/amarillo
+        circle2.rotation.x = -Math.PI / 2;
+        circle2.position.y = 0.01;
+        plazaGroup.add(circle2);
+        
+        // Caminos de la plaza
+        var pathGeo = new THREE.PlaneGeometry(2, 16);
+        var pathMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa });
+        var path1 = new THREE.Mesh(pathGeo, pathMat); path1.rotation.x = -Math.PI/2;
+        var path2 = new THREE.Mesh(pathGeo, pathMat); path2.rotation.x = -Math.PI/2; path2.rotation.z = Math.PI/2;
+        plazaGroup.add(path1); plazaGroup.add(path2);
+
+        scene.add(plazaGroup);
+
+
+        // 7. ARBOLEDA Y VEGETACIÓN (Crucial en Bárbula)
+        function createTree(x, z) {
+            var trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 2), new THREE.MeshBasicMaterial({color: 0x4a3622}));
+            trunk.position.set(x, 1, z);
+            
+            var leaves = new THREE.Mesh(new THREE.DodecahedronGeometry(2.5), new THREE.MeshBasicMaterial({color: 0x2e5c33}));
+            leaves.position.set(x, 3, z);
+            
+            scene.add(trunk);
+            scene.add(leaves);
+        }
+
+        // Esparcir árboles basándonos en las zonas verdes de la foto
+        var treePositions = [
+            [-8, -5], [-25, -5], [-35, -8], [-45, -10], // Cerca de la calle interna
+            [-30, -25], [-28, -48], [-45, -45],         // Alrededor de la plaza y biblioteca
+            [-5, -25], [-5, -40], [-5, -70],            // Bordeando la Av. principal
+            [-60, -35], [-65, -50], [-25, -75]          // Zonas traseras
+        ];
+        
+        treePositions.forEach(pos => {
+            // Añadir algo de aleatoriedad para crear pequeños "bosques"
+            createTree(pos[0], pos[1]);
+            createTree(pos[0] + (Math.random()*4-2), pos[1] + (Math.random()*4-2));
+            createTree(pos[0] + (Math.random()*4-2), pos[1] + (Math.random()*4-2));
+        });
+
+        // 8. RENDERIZADO
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }, false);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
