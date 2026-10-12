@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain - Trazabilidad Pizza Napolitana</title>
+    
+    <!-- Tailwind CSS for rapid styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts: Inter and Fira Code for hashes -->
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                    colors: {
+                        'ita-green': '#009246',
+                        'ita-white': '#F1F2F1',
+                        'ita-red': '#CE2B37',
+                        'brand-dark': '#0f172a',
+                        'brand-accent': '#3b82f6',
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'float': '0 10px 30px -5px rgba(0, 0, 0, 0.1)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        @keyframes slideInUp {
+            from { opacity: 0; transform: translateY(20px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .block-animate {
+            animation: slideInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes toastSlideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes toastFadeOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        .toast-enter { animation: toastSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .toast-exit { animation: toastFadeOut 0.4s ease-in forwards; }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(206, 43, 55, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(206, 43, 55, 0); }
+        }
+        .pulse-pizza { animation: pulseGlow 2s infinite; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #invoice-modal, #invoice-modal * { visibility: visible; }
+            #invoice-modal { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: white; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans selection:bg-ita-red selection:text-white lg:h-screen lg:overflow-hidden">
+
+    <!-- Header Responsivo -->
+    <header class="bg-white/90 backdrop-blur-md shadow-sm z-30 sticky top-0 border-b border-slate-200 flex-shrink-0">
+        <div class="h-1.5 w-full flex">
+            <div class="w-1/3 bg-ita-green"></div>
+            <div class="w-1/3 bg-ita-white"></div>
+            <div class="w-1/3 bg-ita-red"></div>
+        </div>
+        
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-2.5 sm:space-x-3 group cursor-pointer">
+                <div class="bg-red-50 p-2 sm:p-2.5 rounded-xl group-hover:bg-red-100 transition-colors">
+                    <i class="fa-solid fa-pizza-slice text-ita-red text-lg sm:text-2xl transform group-hover:scale-110 transition-transform"></i>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-2xl font-bold tracking-tight text-brand-dark flex items-center gap-1.5 sm:gap-2">
+                        PizzaTraz 
+                        <span class="text-[9px] sm:text-xs font-semibold text-brand-accent bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 uppercase tracking-wider">
+                            Web3
+                        </span>
+                    </h1>
+                    <p class="text-[10px] sm:text-xs text-slate-500 font-medium hidden sm:block">Cadena de Suministro D.O.P.</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Interactive Pizza Widget Icon in Header -->
+                <button onclick="openInvoiceIfReady()" id="interactive-pizza-btn" title="Estado de la Pizza / Factura" class="flex items-center gap-1.5 sm:gap-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2.5 sm:px-3 py-1.5 rounded-xl transition-all shadow-sm">
+                    <div id="pizza-icon-indicator" class="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 text-xs sm:text-sm font-bold border border-amber-300">
+                        🍕
+                    </div>
+                    <div class="text-left hidden sm:block">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase">Estado Pizza</p>
+                        <p id="pizza-status-text" class="text-xs font-semibold text-slate-700">0 / 4 Insumos</p>
+                    </div>
+                </button>
+
+                <div class="flex items-center text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl shadow-inner border border-slate-200">
+                    <div class="relative flex h-2 sm:h-2.5 w-2 sm:w-2.5 mr-1.5 sm:mr-3">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-ita-green opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 sm:h-2.5 w-2 sm:w-2.5 bg-ita-green"></span>
+                    </div>
+                    <span class="hidden md:inline">Red </span>Activa
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl mx-auto w-full flex flex-col lg:flex-row relative lg:overflow-hidden min-h-0">
+        
+        <!-- Left Panel: Controls -->
+        <aside class="w-full lg:w-[380px] xl:w-[420px] p-4 sm:p-6 bg-white border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col flex-shrink-0 z-10 lg:overflow-y-auto shadow-[4px_0_24px_rgba(0,0,0,0.02)] h-auto lg:h-full">
+            
+            <!-- Instructions Card Corregido (Sin overflow-hidden restrictivo) -->
+            <div class="mb-5 sm:mb-6 bg-gradient-to-br from-slate-800 to-brand-dark p-4 sm:p-5 rounded-2xl shadow-lg text-white relative flex-shrink-0">
+                <div class="relative z-10">
+                    <h2 class="text-sm sm:text-base font-bold mb-2.5 flex items-center gap-2">
+                        <i class="fa-solid fa-rocket text-yellow-400"></i> 
+                        <span>Instrucciones</span>
+                    </h2>
+                    <ol class="text-xs sm:text-sm text-slate-300 space-y-2">
+                        <li class="flex items-start gap-2">
+                            <span class="bg-white/20 text-white w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold">1</span>
+                            <span>Ingresa los 4 ingredientes en orden estricto.</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="bg-white/20 text-white w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold">2</span>
+                            <span>Desbloquea tu factura D.O.P. de $10 con código QR.</span>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Input Form -->
+            <form id="block-form" class="mb-5 sm:mb-6 flex-shrink-0">
+                <div class="mb-3.5">
+                    <label for="event-data" class="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">
+                        Registrar Evento / Insumo
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-pen text-slate-400 text-sm"></i>
+                        </div>
+                        <input type="text" id="event-data" required placeholder="Ej: Cosecha de Tomates..." 
+                               class="w-full pl-9 pr-4 py-2.5 sm:py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-accent focus:border-brand-accent focus:bg-white outline-none transition-all shadow-inner">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-ita-red hover:bg-[#b92631] active:scale-[0.99] text-white font-semibold py-2.5 sm:py-3 px-4 rounded-xl shadow-md hover:shadow-lg shadow-red-500/20 transition-all duration-200 flex items-center justify-center space-x-2 text-xs sm:text-sm">
+                    <i class="fa-solid fa-link"></i>
+                    <span>Sellar Bloque en la Red</span>
+                </button>
+            </form>
+
+            <!-- Quick Actions -->
+            <div class="mb-5 sm:mb-6 flex-shrink-0">
+                <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
+                    <i class="fa-solid fa-bolt"></i> Secuencia D.O.P. (En Orden)
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+                    <button type="button" onclick="fillAndSubmit('🍅 Cosecha de Tomates San Marzano DOP en Campania')" class="group text-left p-2.5 sm:p-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-ita-green rounded-xl transition-all duration-200 shadow-sm flex items-center space-x-3">
+                        <span class="text-lg sm:text-xl drop-shadow-md">🍅</span> 
+                        <span class="text-xs sm:text-sm font-medium text-slate-700 group-hover:text-slate-900 leading-tight">1. Tomate San Marzano</span>
+                        <i class="fa-solid fa-chevron-right ml-auto text-slate-300 group-hover:text-ita-green transition-colors text-xs"></i>
+                    </button>
+                    
+                    <button type="button" onclick="fillAndSubmit('🧀 Envío de Mozzarella de Búfala Campana DOP')" class="group text-left p-2.5 sm:p-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-yellow-400 rounded-xl transition-all duration-200 shadow-sm flex items-center space-x-3">
+                        <span class="text-lg sm:text-xl drop-shadow-md">🧀</span> 
+                        <span class="text-xs sm:text-sm font-medium text-slate-700 group-hover:text-slate-900 leading-tight">2. Mozzarella de Búfala</span>
+                        <i class="fa-solid fa-chevron-right ml-auto text-slate-300 group-hover:text-yellow-500 transition-colors text-xs"></i>
+                    </button>
+                    
+                    <button type="button" onclick="fillAndSubmit('🌾 Molienda de Harina de Trigo Tipo 00')" class="group text-left p-2.5 sm:p-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-amber-600 rounded-xl transition-all duration-200 shadow-sm flex items-center space-x-3">
+                        <span class="text-lg sm:text-xl drop-shadow-md">🌾</span> 
+                        <span class="text-xs sm:text-sm font-medium text-slate-700 group-hover:text-slate-900 leading-tight">3. Harina Trigo Tipo 00</span>
+                        <i class="fa-solid fa-chevron-right ml-auto text-slate-300 group-hover:text-amber-600 transition-colors text-xs"></i>
+                    </button>
+                    
+                    <button type="button" onclick="fillAndSubmit('🔥 Alerta IoT: Horneado a 485°C (90 segundos)')" class="group text-left p-2.5 sm:p-3 bg-orange-50/50 hover:bg-orange-50 border border-orange-200 hover:border-orange-400 rounded-xl transition-all duration-200 shadow-sm flex items-center space-x-3 sm:col-span-2 lg:col-span-1">
+                        <span class="text-lg sm:text-xl drop-shadow-md">🔥</span> 
+                        <span class="text-xs sm:text-semibold text-orange-700 group-hover:text-orange-800 leading-tight">4. Horneado 485°C</span>
+                        <i class="fa-solid fa-thermometer-full ml-auto text-orange-400 text-xs"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Info Footer -->
+            <div class="mt-auto pt-3 border-t border-slate-100 flex-shrink-0">
+                <div class="flex items-start gap-2">
+                    <div class="mt-0.5 bg-blue-100 p-1 rounded-lg text-blue-600 flex-shrink-0">
+                        <i class="fa-solid fa-shield-halved text-[10px]"></i>
+                    </div>
+                    <p class="text-[10px] sm:text-xs text-slate-500 leading-relaxed">
+                        Smart Contract verificado en red descentralizada D.O.P.
+                    </p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Right Panel: Ledger / Chain Visualization -->
+        <section class="flex-1 p-4 sm:p-6 lg:p-8 bg-slate-50 flex flex-col min-h-[450px] lg:min-h-0 relative bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px]">
+            
+            <!-- Section Header -->
+            <div class="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 bg-white/70 backdrop-blur-sm p-3.5 rounded-2xl border border-slate-200/60 shadow-sm flex-shrink-0">
+                <h2 class="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+                    <div class="bg-brand-dark text-white p-1.5 rounded-lg text-xs">
+                        <i class="fa-solid fa-cubes"></i>
+                    </div>
+                    Libro Mayor (Ledger)
+                </h2>
+                <div class="flex gap-2 self-stretch sm:self-auto justify-between sm:justify-start">
+                    <button onclick="resetBlockchain()" class="text-xs font-semibold bg-white border border-slate-200 hover:bg-slate-50 px-3 py-1.5 rounded-lg text-slate-600 shadow-sm transition-all flex items-center gap-1.5 flex-1 sm:flex-none justify-center">
+                        <i class="fa-solid fa-rotate-right text-slate-400"></i> Reiniciar
+                    </button>
+                    <span class="flex items-center gap-1.5 text-[10px] sm:text-xs font-semibold bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-slate-500 shadow-sm">
+                        <i class="fa-solid fa-lock text-slate-400"></i> SHA-256
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Blockchain Container -->
+            <div id="blockchain-container" class="flex-1 overflow-y-auto pr-1 pb-16 flex flex-col items-center w-full">
+                <!-- Blocks injected by JS -->
+            </div>
+            
+            <!-- Fade bottom effect -->
+            <div class="absolute bottom-0 left-0 w-full h-8 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none"></div>
+        </section>
+    </main>
+
+    <!-- Invoice Modal -->
+    <div id="invoice-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 hidden overflow-y-auto">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 transform transition-all animate-[slideInUp_0.3s_ease-out] my-auto">
+            <div class="h-2 w-full flex">
+                <div class="w-1/3 bg-ita-green"></div>
+                <div class="w-1/3 bg-ita-white"></div>
+                <div class="w-1/3 bg-ita-red"></div>
+            </div>
+
+            <div class="p-5 sm:p-7 max-h-[85vh] overflow-y-auto">
+                <div class="flex justify-between items-start mb-4 sm:mb-5">
+                    <div>
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-ita-green bg-green-50 px-2.5 py-1 rounded-full border border-green-100">
+                            Factura Auténtica D.O.P.
+                        </span>
+                        <h3 class="text-lg sm:text-xl font-bold text-slate-900 mt-1.5">Pizza Napolitana</h3>
+                        <p id="invoice-date" class="text-[11px] sm:text-xs text-slate-500 mt-0.5">Fecha: --/--/----</p>
+                    </div>
+                    <button onclick="closeInvoiceModal()" class="no-print text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 transition-colors">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <div class="space-y-3.5 mb-5">
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 space-y-2">
+                        <div class="flex justify-between text-xs text-slate-500 font-semibold border-b border-slate-200/60 pb-2">
+                            <span>Blockchain:</span>
+                            <span class="font-mono text-slate-700">PizzaTraz Web3</span>
+                        </div>
+                        <div class="text-xs font-bold text-slate-700 uppercase tracking-wide pt-0.5">Insumos Verificados:</div>
+                        <ul id="invoice-items-list" class="space-y-1.5 text-xs text-slate-600"></ul>
+                    </div>
+
+                    <div class="flex items-center justify-between px-4 py-3 bg-red-50/60 border border-red-100 rounded-2xl">
+                        <span class="text-sm font-bold text-slate-700">Total a Pagar:</span>
+                        <span class="text-lg sm:text-xl font-extrabold text-ita-red">$10.00 USD</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-center justify-center p-3.5 bg-slate-50 rounded-2xl border border-slate-200/60 mb-5">
+                    <div class="bg-white p-2.5 rounded-xl shadow-sm border border-slate-100 mb-2">
+                        <img id="qr-code-img" src="" alt="Código QR de Verificación" class="w-28 h-28 sm:w-32 sm:h-32 object-contain">
+                    </div>
+                    <p class="text-[10px] sm:text-[11px] text-slate-500 text-center font-medium">
+                        Escanea el código QR para verificar autenticidad en <strong class="text-slate-700">PizzaTraz Web3</strong>
+                    </p>
+                </div>
+
+                <div class="flex gap-2.5 no-print">
+                    <button onclick="window.print()" class="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 px-3 rounded-xl shadow-md transition-all text-xs sm:text-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-print"></i> Imprimir
+                    </button>
+                    <button onclick="closeInvoiceModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-3 rounded-xl transition-all text-xs sm:text-sm">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col gap-2 pointer-events-none max-w-[calc(100vw-2rem)] sm:max-w-sm"></div>
+
+    <script>
+        function generatePseudoHash(dataString) {
+            let hash = 0;
+            for (let i = 0; i < dataString.length; i++) {
+                let char = dataString.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            let hex = Math.abs(hash).toString(16);
+            let hashPart1 = hex.padStart(16, '0');
+            let hashPart2 = hex.split('').reverse().join('').padStart(16, 'e');
+            let hashPart3 = (hash * 3).toString(16).replace('-','').padStart(16, 'f');
+            let hashPart4 = (hash * 7).toString(16).replace('-','').padStart(16, 'a');
+            return (hashPart1 + hashPart2 + hashPart3 + hashPart4).substring(0, 64);
+        }
+
+        class Block {
+            constructor(index, timestamp, data, previousHash = '') {
+                this.index = index;
+                this.timestamp = timestamp;
+                this.data = data;
+                this.previousHash = previousHash;
+                this.hash = this.calculateHash();
+            }
+            calculateHash() {
+                const dataToHash = this.index + this.previousHash + this.timestamp + JSON.stringify(this.data);
+                return generatePseudoHash(dataToHash);
+            }
+        }
+
+        class Blockchain {
+            constructor() {
+                this.chain = [this.createGenesisBlock()];
+            }
+            createGenesisBlock() {
+                return new Block(
+                    0, 
+                    this.getCurrentDate(), 
+                    "🍕 Bloque Génesis: Certificación Original UNESCO", 
+                    "0000000000000000000000000000000000000000000000000000000000000000"
+                );
+            }
+            getLatestBlock() {
+                return this.chain[this.chain.length - 1];
+            }
+            addBlock(newData) {
+                const latestBlock = this.getLatestBlock();
+                const newBlock = new Block(
+                    latestBlock.index + 1,
+                    this.getCurrentDate(),
+                    newData,
+                    latestBlock.hash
+                );
+                this.chain.push(newBlock);
+            }
+            getCurrentDate() {
+                const now = new Date();
+                return now.toLocaleDateString('es-ES') + ' ' + now.toLocaleTimeString('es-ES', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            }
+        }
+
+        const pizzaCoin = new Blockchain();
+        
+        const container = document.getElementById('blockchain-container');
+        const form = document.getElementById('block-form');
+        const inputData = document.getElementById('event-data');
+        const toastContainer = document.getElementById('toast-container');
+        const interactivePizzaBtn = document.getElementById('interactive-pizza-btn');
+        const pizzaIconIndicator = document.getElementById('pizza-icon-indicator');
+        const pizzaStatusText = document.getElementById('pizza-status-text');
+
+        const expectedIngredients = [
+            "🍅 Cosecha de Tomates San Marzano DOP en Campania",
+            "🧀 Envío de Mozzarella de Búfala Campana DOP",
+            "🌾 Molienda de Harina de Trigo Tipo 00",
+            "🔥 Alerta IoT: Horneado a 485°C (90 segundos)"
+        ];
+
+        function checkPizzaCompletion() {
+            const currentBlocks = pizzaCoin.chain.slice(1).map(b => b.data);
+            let matchedCount = 0;
+            
+            for (let i = 0; i < currentBlocks.length && i < expectedIngredients.length; i++) {
+                if (currentBlocks[i] === expectedIngredients[i]) {
+                    matchedCount++;
+                } else {
+                    break;
+                }
+            }
+
+            if (matchedCount === 4) {
+                pizzaIconIndicator.innerHTML = "🍕";
+                pizzaIconIndicator.className = "w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-red-100 flex items-center justify-center text-red-700 text-xs sm:text-sm font-bold border border-red-300 pulse-pizza";
+                pizzaStatusText.textContent = "¡Pizza Completa ($10)!";
+                interactivePizzaBtn.classList.add('border-ita-red', 'bg-red-50');
+                return true;
+            } else {
+                pizzaIconIndicator.innerHTML = matchedCount > 0 ? "🧀" : "🍕";
+                pizzaIconIndicator.className = "w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 text-xs sm:text-sm font-bold border border-amber-300";
+                pizzaStatusText.textContent = `${matchedCount} / 4 Insumos`;
+                interactivePizzaBtn.classList.remove('border-ita-red', 'bg-red-50');
+                return false;
+            }
+        }
+
+        function showToast(message, isSuccess = true) {
+            const toast = document.createElement('div');
+            toast.className = 'toast-enter bg-white border border-slate-100 shadow-float rounded-xl p-3 sm:p-4 flex items-center gap-3 w-full pointer-events-auto';
+            
+            toast.innerHTML = `
+                <div class="${isSuccess ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'} rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid ${isSuccess ? 'fa-check' : 'fa-triangle-exclamation'} text-xs sm:text-sm"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h4 class="text-xs sm:text-sm font-bold text-slate-800">${isSuccess ? '¡Éxito!' : 'Aviso'}</h4>
+                    <p class="text-[11px] sm:text-xs text-slate-500 mt-0.5 truncate">${message}</p>
+                </div>
+                <button class="ml-auto text-slate-400 hover:text-slate-600 transition-colors p-1" onclick="this.parentElement.remove()">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            `;
+            
+            toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.replace('toast-enter', 'toast-exit');
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        function openInvoiceIfReady() {
+            if (checkPizzaCompletion()) {
+                showInvoiceModal();
+            } else {
+                showToast("Completa los 4 ingredientes de la receta en orden exacto para generar tu factura D.O.P. de $10.", false);
+            }
+        }
+
+        function showInvoiceModal() {
+            const modal = document.getElementById('invoice-modal');
+            const itemsList = document.getElementById('invoice-items-list');
+            const invoiceDate = document.getElementById('invoice-date');
+            const qrImg = document.getElementById('qr-code-img');
+
+            const today = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            invoiceDate.textContent = `Fecha: ${today}`;
+
+            itemsList.innerHTML = '';
+            expectedIngredients.forEach((ing) => {
+                const li = document.createElement('li');
+                li.className = "flex items-center gap-2";
+                li.innerHTML = `<i class="fa-solid fa-circle-check text-ita-green text-[10px]"></i> <span>${ing}</span>`;
+                itemsList.appendChild(li);
+            });
+
+            const verifyUrl = window.location.href;
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeInvoiceModal() {
+            document.getElementById('invoice-modal').classList.add('hidden');
+        }
+
+        function resetBlockchain() {
+            pizzaCoin.chain = [pizzaCoin.createGenesisBlock()];
+            renderBlockchain();
+            checkPizzaCompletion();
+            showToast("Cadena reiniciada.", true);
+        }
+
+        function renderBlockchain(animateLast = false) {
+            container.innerHTML = '';
+            
+            pizzaCoin.chain.forEach((block, index) => {
+                const isGenesis = index === 0;
+                
+                const blockDiv = document.createElement('div');
+                blockDiv.className = `w-full max-w-2xl bg-white rounded-2xl shadow-float border border-slate-100 flex-shrink-0 relative z-10 transition-transform duration-300 hover:-translate-y-0.5 ${isGenesis ? 'border-t-4 border-t-ita-green' : 'border-t-4 border-t-brand-accent'}`;
+                
+                if (animateLast && index === pizzaCoin.chain.length - 1) {
+                    blockDiv.classList.add('block-animate');
+                }
+
+                const headerBg = isGenesis ? 'bg-gradient-to-r from-green-50 to-emerald-50/20' : 'bg-slate-50/80';
+                const headerTextColor = isGenesis ? 'text-ita-green' : 'text-slate-700';
+                const headerText = isGenesis ? 'Bloque #0 (Génesis)' : `Bloque #${block.index}`;
+                const icon = isGenesis ? 'fa-seedling' : 'fa-link';
+                const iconColor = isGenesis ? 'text-ita-green' : 'text-brand-accent';
+
+                blockDiv.innerHTML = `
+                    <div class="${headerBg} px-3.5 sm:px-5 py-3 border-b border-slate-100 flex flex-wrap justify-between items-center gap-2">
+                        <div class="flex items-center gap-2">
+                            <div class="bg-white p-1.5 rounded-lg shadow-sm">
+                                <i class="fa-solid ${icon} ${iconColor} text-xs"></i>
+                            </div>
+                            <span class="font-bold text-xs sm:text-sm ${headerTextColor}">${headerText}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 text-[10px] sm:text-xs font-mono text-slate-500 bg-white/60 px-2.5 py-1 rounded-lg border border-slate-100 shadow-sm">
+                            <i class="fa-regular fa-clock"></i> ${block.timestamp}
+                        </div>
+                    </div>
+                    
+                    <div class="p-3.5 sm:p-5">
+                        <div class="mb-3.5">
+                            <span class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block flex items-center gap-1">
+                                <i class="fa-solid fa-database"></i> Datos Registrados
+                            </span>
+                            <div class="text-xs sm:text-sm font-medium text-slate-800 bg-slate-50/60 p-3 rounded-xl border border-slate-100 shadow-inner break-words">
+                                ${block.data}
+                            </div>
+                        </div>
+                        
+                        <div class="flex flex-col gap-2">
+                            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5 block">Hash Anterior</span>
+                                <div class="font-mono text-[9px] sm:text-xs text-slate-500 break-all leading-relaxed">${block.previousHash}</div>
+                            </div>
+                            
+                            <div class="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100">
+                                <span class="text-[9px] font-bold text-brand-accent uppercase tracking-widest mb-0.5 block flex items-center gap-1">
+                                    <i class="fa-solid fa-fingerprint"></i> Hash Actual (Firma)
+                                </span>
+                                <div class="font-mono text-[9px] sm:text-xs text-blue-900 font-semibold break-all leading-relaxed">${block.hash}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(blockDiv);
+
+                if (index < pizzaCoin.chain.length - 1) {
+                    const arrowContainer = document.createElement('div');
+                    arrowContainer.className = 'w-full flex flex-col items-center justify-center my-2 h-7 relative z-0 opacity-60 flex-shrink-0';
+                    arrowContainer.innerHTML = `
+                        <div class="w-1 h-full bg-gradient-to-b from-slate-200 to-slate-300 rounded-full"></div>
+                        <div class="absolute bottom-0 bg-slate-100 p-1 rounded-full border border-slate-200 text-slate-400 shadow-sm translate-y-1">
+                            <i class="fa-solid fa-arrow-down text-[10px]"></i>
+                        </div>
+                    `;
+                    container.appendChild(arrowContainer);
+                }
+            });
+
+            setTimeout(() => {
+                container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+            }, 100);
+        }
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const data = inputData.value.trim();
+            if (data) {
+                pizzaCoin.addBlock(data);
+                inputData.value = '';
+                renderBlockchain(true);
+                
+                const isCompleted = checkPizzaCompletion();
+                if (isCompleted) {
+                    showToast("¡Receta D.O.P. completada con éxito! Generando factura...");
+                    setTimeout(() => {
+                        showInvoiceModal();
+                    }, 800);
+                } else if (expectedIngredients.includes(data)) {
+                    showToast("Bloque de ingrediente minado y añadido."); 
+                } else {
+                    showToast("Ingrediente registrado (Fuera de secuencia D.O.P.)", false);
+                }
+            }
+        });
+
+        function fillAndSubmit(text) {
+            inputData.value = text;
+            setTimeout(() => {
+                form.dispatchEvent(new Event('submit'));
+            }, 150);
+        }
+
+        window.onload = () => {
+            renderBlockchain();
+            checkPizzaCompletion();
+        };
+    </script>
+</body>
+</html>
